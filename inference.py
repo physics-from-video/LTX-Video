@@ -254,9 +254,9 @@ def main():
 
     # Prompts
     parser.add_argument(
-        "--prompt",
+        "--prompt_path",
         type=str,
-        help="Text prompt to guide generation",
+        help="Path to the text prompt file",
     )
     parser.add_argument(
         "--negative_prompt",
@@ -274,6 +274,12 @@ def main():
     logger = logging.get_logger(__name__)
 
     args = parser.parse_args()
+
+    with open(args.prompt_path, "r") as file:
+        content = file.read().strip()
+        prompt, img_path = content.split("@@")
+        args.prompt = prompt.strip()
+        args.input_image_path = os.path.expandvars(img_path.strip())
 
     logger.warning(f"Running generation with arguments: {args}")
 
