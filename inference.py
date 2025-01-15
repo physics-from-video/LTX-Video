@@ -256,8 +256,10 @@ def main():
     parser.add_argument(
         "--prompt_path",
         type=str,
-        help="Path to the text prompt file",
+        required=True,
+        help="Path to the prompt file that contains the prompt and image path.",
     )
+    
     parser.add_argument(
         "--negative_prompt",
         type=str,
@@ -270,11 +272,28 @@ def main():
         action="store_true",
         help="Offloading unnecessary computations to CPU.",
     )
+    
+    parser.add_argument(
+        "--experiment",
+        type=str,
+        default="falling_ball",
+        choices=["falling_ball", "holonomic_pendulum", "double_pendulum"],
+        help="Prompt type to load from prompts directory",
+    )
 
+    parser.add_argument(
+        "--prompt_type",
+        type=str,
+        default="plain",
+        choices=["plain", "enhanced"],
+        help="Experiment number to load from prompts directory",
+    )
+    
     logger = logging.get_logger(__name__)
 
     args = parser.parse_args()
 
+    # Added this to load prompts from a file
     with open(args.prompt_path, "r") as file:
         content = file.read().strip()
         prompt, img_path = content.split("@@")
@@ -293,7 +312,13 @@ def main():
         else Path(f"outputs/{datetime.today().strftime('%Y-%m-%d')}")
     )
     output_dir.mkdir(parents=True, exist_ok=True)
-
+    
+    # Save config
+    import json
+    
+    with open(output_dir / "config.json", "w") as f:
+        json.dump(vars(args), f, indent=4)
+    
     # Load image
     if args.input_image_path:
         media_items_prepad = load_image_to_tensor_with_resize_and_crop(
