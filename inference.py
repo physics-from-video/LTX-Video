@@ -289,6 +289,13 @@ def main():
         help="Experiment number to load from prompts directory",
     )
     
+    parser.add_argument(
+        "--multi_frame_conditioning",
+        action="store_true",
+        default=False,
+        help="Use multiple frames for conditioning",
+    )
+    
     logger = logging.get_logger(__name__)
 
     args = parser.parse_args()
@@ -297,6 +304,10 @@ def main():
     with open(args.prompt_path, "r") as file:
         content = file.read().strip()
         prompt, img_path = content.split("@@")
+        # in case of single frame conditioning, only take the first image
+        if not args.multi_frame_conditioning:
+            img_path = img_path.split(",")[0]
+            
         args.prompt = prompt.strip()
         args.input_image_path = os.path.expandvars(img_path.strip())
 
