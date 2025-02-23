@@ -290,10 +290,11 @@ def main():
     )
     
     parser.add_argument(
-        "--multi_frame_conditioning",
-        action="store_true",
-        default=False,
-        help="Use multiple frames for conditioning",
+        "--conditioning_type",
+        type=str,
+        default="single_frame_conditioning",
+        choices=["single_frame_conditioning", "multi_frame_conditioning"],
+        help="Conditioning type for the pipeline",
     )
     
     logger = logging.get_logger(__name__)
@@ -305,9 +306,11 @@ def main():
         content = file.read().strip()
         prompt, img_path = content.split("@@")
         # in case of single frame conditioning, only take the first image
-        if not args.multi_frame_conditioning:
+        if args.conditioning_type == "single_frame_conditioning":
             img_path = img_path.split(",")[0]
-            
+        else:
+            # TODO: handle multi-frame conditioning
+            img_paths = img_path.split(",")
         args.prompt = prompt.strip()
         args.input_image_path = os.path.expandvars(img_path.strip())
 
