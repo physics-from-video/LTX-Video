@@ -24,6 +24,7 @@ conda create -p $ENV_PREFIX python=3.10 -y
 source activate $ENV_PREFIX
 pip install torch==2.3.0 torchvision==0.18.0 torchaudio==2.3.0 --index-url https://download.pytorch.org/whl/cu121
 pip install -U git+https://github.com/huggingface/diffusers
+pip install beautifulsoup4
 # conda install nvidia/label/cuda-12.2.0::cuda-toolkit -c nvidia/label/cuda-12.2.0
 
 
