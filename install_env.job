@@ -1,0 +1,39 @@
+#!/bin/bash 
+#SBATCH --partition=gpu
+#SBATCH --gpus=1
+#SBATCH --gpus-per-node=1
+#SBATCH --job-name=install_ltx_video_env
+#SBATCH --ntasks=1
+#SBATCH --cpus-per-task=16
+#SBATCH --time=00:30:00
+#SBATCH --output=install-ltx-video-env-%A.out
+
+# entire script fails if a single command fails
+set -e
+
+module purge
+module load 2023
+module load Anaconda3/2023.07-2
+module load CUDA/12.1.1
+
+PROJECT_DIR="$PWD"
+ENV_PREFIX="$PROJECT_DIR/.env"
+
+
+conda create -p $ENV_PREFIX python=3.10 -y
+source activate $ENV_PREFIX
+pip install torch==2.3.0 torchvision==0.18.0 torchaudio==2.3.0 --index-url https://download.pytorch.org/whl/cu121
+pip install -U git+https://github.com/huggingface/diffusers
+# conda install nvidia/label/cuda-12.2.0::cuda-toolkit -c nvidia/label/cuda-12.2.0
+
+
+# Set CUDA_HOME to point to conda environment's CUDA installation
+# echo 'export CUDA_HOME=$CONDA_PREFIX' >> $ENV_PREFIX/etc/conda/activate.d/env_vars.sh
+# mkdir -p $ENV_PREFIX/etc/conda/deactivate.d
+# echo 'unset CUDA_HOME' >> $ENV_PREFIX/etc/conda/deactivate.d/env_vars.sh
+
+pip install -e .[inference-script]
+
+conda install -c conda-forge code-server=4.23.1 -y
+
+python -c "import torch; import diffusers; import transformers; print(f'CUDA available: {torch.cuda.is_available()}'); print(f'CUDA version: {torch.version.cuda}'); print(f'Torch version: {torch.__version__}'); print(f'Diffusers version: {diffusers.__version__}'); print(f'Transformers version: {transformers.__version__}')"

@@ -161,7 +161,7 @@ def main():
         default=None,
         help="Path to the folder to save output video, if None will save in outputs/ directory.",
     )
-    parser.add_argument("--seed", type=int, default="171198")
+    parser.add_argument("--seed", type=int, default="42")
 
     # Pipeline parameters
     parser.add_argument(
@@ -263,7 +263,7 @@ def main():
     parser.add_argument(
         "--negative_prompt",
         type=str,
-        default="worst quality, inconsistent motion, blurry, jittery, distorted",
+        default="worst quality, inconsistent motion, blurry, jittery, distorted, camera movement",
         help="Negative prompt for undesired features",
     )
 
@@ -288,13 +288,12 @@ def main():
         choices=["plain", "enhanced"],
         help="Experiment number to load from prompts directory",
     )
-    
+
     parser.add_argument(
-        "--conditioning_type",
-        type=str,
-        default="single_frame_conditioning",
-        choices=["single_frame_conditioning", "multi_frame_conditioning"],
-        help="Conditioning type for the pipeline",
+        "--num_cond_frames",
+        type=int,
+        default=None,
+        help="Number of conditioning frames",
     )
     
     logger = logging.get_logger(__name__)
@@ -304,15 +303,22 @@ def main():
     # Added this to load prompts from a file
     with open(args.prompt_path, "r") as file:
         content = file.read().strip()
-        prompt, img_path = content.split("@@")
-        # in case of single frame conditioning, only take the first image
-        if args.conditioning_type == "single_frame_conditioning":
-            img_path = img_path.split(",")[0]
-        else:
-            # TODO: handle multi-frame conditioning
-            img_paths = img_path.split(",")
-        args.prompt = prompt.strip()
-        args.input_image_path = os.path.expandvars(img_path.strip())
+    prompt, img_path = content.split("@@")
+    img_path = os.path.expandvars(img_path)
+    # in case of single frame conditioning, only take the first image
+    
+  
+    img_path = [p.strip() for p in img_path.split(",") if os.path.exists(p.strip())] or FileNotFoundError("No valid image paths found")
+    img_path = img_path[0] if len(img_path) == 1 else img_path
+    if args.num_cond_frames:
+        img_path = img_path[:args.num_cond_frames]
+        print(100*"*")
+        print(f"Conditioning on {len(img_path)} frames")
+        print(100*"*")
+
+    args.prompt = prompt.strip()
+    args.input_image_path = img_path
+    print(args.input_image_path)
 
     logger.warning(f"Running generation with arguments: {args}")
 
@@ -334,10 +340,21 @@ def main():
         json.dump(vars(args), f, indent=4)
     
     # Load image
+
     if args.input_image_path:
-        media_items_prepad = load_image_to_tensor_with_resize_and_crop(
+        if isinstance(args.input_image_path, list):
+            media_items_prepad = []
+            for img_path in args.input_image_path:
+                media_items_prepad.append(load_image_to_tensor_with_resize_and_crop(
+                    img_path, args.height, args.width
+                ))
+            media_items_prepad = torch.stack(media_items_prepad).squeeze(1)
+            media_items_prepad = media_items_prepad.permute(2, 1, 0, 3, 4)
+        else:
+            media_items_prepad = load_image_to_tensor_with_resize_and_crop(
             args.input_image_path, args.height, args.width
         )
+
     else:
         media_items_prepad = None
 
@@ -446,9 +463,11 @@ def main():
         is_video=True,
         vae_per_channel_normalize=True,
         conditioning_method=(
-            ConditioningMethod.FIRST_FRAME
-            if media_items is not None
-            else ConditioningMethod.UNCONDITIONAL
+            ConditioningMethod.UNCONDITIONAL
+            if media_items is None
+            else ConditioningMethod.MULTIPLE_FRAMES
+            if len(media_items) > 1
+            else ConditioningMethod.FIRST_FRAME
         ),
         image_cond_noise_scale=args.image_cond_noise_scale,
         decode_timestep=args.decode_timestep,
@@ -486,18 +505,21 @@ def main():
             )
             imageio.imwrite(output_filename, video_np[0])
         else:
-            if args.input_image_path:
-                base_filename = f"img_to_vid_{i}"
-            else:
-                base_filename = f"text_to_vid_{i}"
-            output_filename = get_unique_filename(
-                base_filename,
-                ".mp4",
-                prompt=args.prompt,
-                seed=args.seed,
-                resolution=(height, width, num_frames),
-                dir=output_dir,
-            )
+
+            output_filename = os.path.join(output_dir, os.path.basename(output_dir) + f"_seed_{args.seed}.mp4")
+            
+            # if args.input_image_path:
+            #     base_filename = f"img_to_vid_{i}"
+            # else:
+            #     base_filename = f"text_to_vid_{i}"
+            # output_filename = get_unique_filename(
+            #     base_filename,
+            #     ".mp4",
+            #     prompt=args.prompt,
+            #     seed=args.seed,
+            #     resolution=(height, width, num_frames),
+            #     dir=output_dir,
+            # )
 
             # Write video
             with imageio.get_writer(output_filename, fps=fps) as video:
@@ -505,27 +527,28 @@ def main():
                     video.append_data(frame)
 
             # Write condition image
-            if args.input_image_path:
-                reference_image = (
-                    (
-                        media_items_prepad[0, :, 0].permute(1, 2, 0).cpu().data.numpy()
-                        + 1.0
-                    )
-                    / 2.0
-                    * 255
-                )
-                imageio.imwrite(
-                    get_unique_filename(
-                        base_filename,
-                        ".png",
-                        prompt=args.prompt,
-                        seed=args.seed,
-                        resolution=(height, width, num_frames),
-                        dir=output_dir,
-                        endswith="_condition",
-                    ),
-                    reference_image.astype(np.uint8),
-                )
+            # if args.input_image_path:
+            #     for idx in range(args.num_cond_frames):
+            #         reference_image = (
+            #             (
+            #                 media_items_prepad[0, :, idx].permute(1, 2, 0).cpu().data.numpy()
+            #                 + 1.0
+            #             )
+            #             / 2.0
+            #             * 255
+            #         )
+            #         imageio.imwrite(
+            #             get_unique_filename(
+            #                 base_filename,
+            #                 ".png",
+            #                 prompt=args.prompt,
+            #                 seed=args.seed,
+            #                 resolution=(height, width, num_frames),
+            #                 dir=output_dir,
+            #                 endswith=f"_condition_{idx}",
+            #             ),
+            #             reference_image.astype(np.uint8),
+            #         )
         logger.warning(f"Output saved to {output_dir}")
 
 

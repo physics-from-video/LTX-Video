@@ -1265,8 +1265,8 @@ class LTXVideoPipeline(DiffusionPipeline):
         # Prepare the conditioning mask (1.0 = condition on this token)
         b, n, f, h, w = init_latents.shape
         conditioning_mask = torch.zeros([b, 1, f, h, w], device=init_latents.device)
-        if method == ConditioningMethod.FIRST_FRAME:
-            conditioning_mask[:, :, 0] = 1.0
+        if method == ConditioningMethod.FIRST_FRAME or method == ConditioningMethod.MULTIPLE_FRAMES:
+            conditioning_mask[:, :, :init_len] = 1.0
 
         # Patchify the init latents and the mask
         conditioning_mask = self.patchifier.patchify(conditioning_mask).squeeze(-1)
