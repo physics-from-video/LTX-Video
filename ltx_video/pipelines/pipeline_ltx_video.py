@@ -255,6 +255,7 @@ class LTXVideoPipeline(DiffusionPipeline):
         prompt_attention_mask: Optional[torch.FloatTensor] = None,
         negative_prompt_attention_mask: Optional[torch.FloatTensor] = None,
         clean_caption: bool = False,
+        max_length: int = 512,
         **kwargs,
     ):
         r"""
@@ -298,7 +299,7 @@ class LTXVideoPipeline(DiffusionPipeline):
 
         # See Section 3.1. of the paper.
         # FIXME: to be configured in config not hardecoded. Fix in separate PR with rest of config
-        max_length = 128  # TPU supports only lengths multiple of 128
+        # max_length = 512  # TPU supports only lengths multiple of 128
         text_enc_device = next(self.text_encoder.parameters()).device
         if prompt_embeds is None:
             prompt = self._text_preprocessing(prompt, clean_caption=clean_caption)
@@ -796,6 +797,7 @@ class LTXVideoPipeline(DiffusionPipeline):
         decode_noise_scale: Optional[List[float]] = None,
         mixed_precision: bool = False,
         offload_to_cpu: bool = False,
+        max_length: int = 512,
         **kwargs,
     ) -> Union[ImagePipelineOutput, Tuple]:
         """
@@ -935,6 +937,7 @@ class LTXVideoPipeline(DiffusionPipeline):
             prompt_attention_mask=prompt_attention_mask,
             negative_prompt_attention_mask=negative_prompt_attention_mask,
             clean_caption=clean_caption,
+            max_length=max_length,
         )
 
         if offload_to_cpu:

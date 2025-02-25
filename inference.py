@@ -465,6 +465,7 @@ def main():
         decode_noise_scale=args.decode_noise_scale,
         mixed_precision=(args.precision == "mixed_precision"),
         offload_to_cpu=offload_to_cpu,
+        max_length=512
     ).images
 
     # Crop the padded images to the desired resolution and number of frames
