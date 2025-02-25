@@ -26,6 +26,8 @@ MAX_HEIGHT = 720
 MAX_WIDTH = 1280
 MAX_NUM_FRAMES = 257
 
+SCRATCH_DIR = os.path.join('/scratch-shared/', os.getenv("USER"))
+
 
 def get_total_gpu_memory():
     if torch.cuda.is_available():
@@ -144,8 +146,8 @@ def main():
     parser.add_argument(
         "--ckpt_path",
         type=str,
-        required=True,
-        help="Path to a safetensors file that contains all model parts.",
+        default="LTX-Video",
+        help="Path to a safetensors file that contains all model parts. Please provide the relative path to the model directory.",
     )
     parser.add_argument(
         "--input_video_path",
@@ -273,21 +275,6 @@ def main():
         help="Offloading unnecessary computations to CPU.",
     )
     
-    parser.add_argument(
-        "--experiment",
-        type=str,
-        default="falling_ball",
-        choices=["falling_ball", "holonomic_pendulum", "double_pendulum"],
-        help="Prompt type to load from prompts directory",
-    )
-
-    parser.add_argument(
-        "--prompt_type",
-        type=str,
-        default="plain",
-        choices=["plain", "enhanced"],
-        help="Experiment number to load from prompts directory",
-    )
 
     parser.add_argument(
         "--num_cond_frames",
@@ -309,12 +296,16 @@ def main():
     
   
     img_path = [p.strip() for p in img_path.split(",") if os.path.exists(p.strip())] or FileNotFoundError("No valid image paths found")
-    img_path = img_path[0] if len(img_path) == 1 else img_path
+   
     if args.num_cond_frames:
-        img_path = img_path[:args.num_cond_frames]
+        if args.num_cond_frames < len(img_path):
+            img_path = img_path[:args.num_cond_frames]
+            
         print(100*"*")
         print(f"Conditioning on {len(img_path)} frames")
         print(100*"*")
+    else:
+        img_path = img_path[0]
 
     args.prompt = prompt.strip()
     args.input_image_path = img_path
@@ -385,7 +376,7 @@ def main():
     else:
         media_items = None
 
-    ckpt_path = Path(args.ckpt_path)
+    ckpt_path = Path(SCRATCH_DIR, args.ckpt_path)
     vae = CausalVideoAutoencoder.from_pretrained(ckpt_path)
     transformer = Transformer3DModel.from_pretrained(ckpt_path)
     scheduler = RectifiedFlowScheduler.from_pretrained(ckpt_path)
