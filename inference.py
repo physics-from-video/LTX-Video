@@ -146,7 +146,7 @@ def main():
     parser.add_argument(
         "--ckpt_path",
         type=str,
-        default="LTX-Video",
+        required=True,
         help="Path to a safetensors file that contains all model parts. Please provide the relative path to the model directory.",
     )
     parser.add_argument(
